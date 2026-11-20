@@ -1,4 +1,5 @@
-﻿from baseline import calculate_baseline
+﻿
+from baseline import calculate_baseline
 from anomaly_detector import detect_anomalies
 from ml_detector import detect_ml_anomaly
 from incident_correlator import correlate_anomalies
@@ -36,7 +37,10 @@ def run_aiops_engine(historical_data, current_metrics):
         return {
             "status": "healthy",
             "message": "No anomalies detected.",
-            "statistical_detection": statistical_anomalies,
+            "statistical_detection": {
+                "anomaly_count": 0,
+                "anomalies": []
+            },
             "ml_detection": ml_result
         }
 
@@ -64,13 +68,19 @@ def run_aiops_engine(historical_data, current_metrics):
 
     # 6. Classify severity
     if statistical_anomalies:
+
         incident["severity"] = classify_severity(
             statistical_anomalies
         )
-        incident["severity_basis"] = "Z-score statistical analysis"
+
+        incident["severity_basis"] = (
+            "Z-score statistical analysis"
+        )
 
     else:
+
         incident["severity"] = "MEDIUM"
+
         incident["severity_basis"] = (
             "Provisional severity for ML-only detection"
         )
@@ -96,15 +106,16 @@ def run_aiops_engine(historical_data, current_metrics):
 
     incident.update(explanation)
 
-    # 8. Attach ML results
+    # 8. Attach statistical detection results
     incident["statistical_detection"] = {
         "anomaly_count": len(statistical_anomalies),
         "anomalies": statistical_anomalies
     }
 
+    # 9. Attach ML detection results
     incident["ml_detection"] = ml_result
 
-    # 9. Final incident status
+    # 10. Final status
     incident["status"] = "incident_detected"
 
     return incident
@@ -122,11 +133,12 @@ if __name__ == "__main__":
         {"cpu_percent": 30, "memory_percent": 47, "latency_ms": 101}
     ]
 
+    # Normal telemetry for healthy scenario testing
     current_metrics = {
-        "cpu_percent": 95,
-        "memory_percent": 90,
-        "latency_ms": 500
-    }
+    "cpu_percent": 95,
+    "memory_percent": 90,
+    "latency_ms": 500
+}
 
     result = run_aiops_engine(
         historical_data,
