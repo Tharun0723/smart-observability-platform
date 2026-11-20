@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 import httpx
 
 
-# Raw collector field -> backend database metric name
 METRIC_NAME_MAP = {
     "cpu_percent": "cpu_usage_percent",
     "memory_percent": "memory_usage_percent",
@@ -48,18 +47,12 @@ METRIC_UNITS = {
 
 
 def validate_outbound_payload(payload):
-    """Reject unapproved fields and invalid metric values."""
-
-    if not isinstance(payload, dict):
-        raise TypeError("Payload must be a dictionary")
-
-    if not payload:
-        raise ValueError("Payload cannot be empty")
+    if not isinstance(payload, dict) or not payload:
+        raise ValueError("Payload must be a non-empty dictionary")
 
     for key, value in payload.items():
-
         if key not in ALLOWED_FIELDS:
-            raise ValueError(f"Blocked unapproved field: {key}")
+            raise ValueError(f"Unapproved field: {key}")
 
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError(f"{key} must be numeric")
@@ -77,80 +70,44 @@ def validate_outbound_payload(payload):
 
 
 def build_backend_payload(payload):
-    """
-    Convert collector metrics into the backend MetricBatch schema.
-
-    Backend expects:
-    {
-        "metrics": [
-            {
-                "metric_name": "...",
-                "value": 45.0,
-                "unit": "%",
-                "recorded_at": "UTC timestamp"
-            }
-        ]
-    }
-    """
+    """Convert local metrics into FastAPI MetricBatch format."""
 
     validate_outbound_payload(payload)
 
-    recorded_at = datetime.now(timezone.utc).isoformat()
+    timestamp = datetime.now(timezone.utc).isoformat()
 
-    metrics = []
-
-    for field, value in payload.items():
-        metrics.append({
-            "metric_name": METRIC_NAME_MAP[field],
-            "value": value,
-            "unit": METRIC_UNITS[field],
-            "recorded_at": recorded_at,
-        })
-
-    return {"metrics": metrics}
-
-
-def validate_backend_url(backend_url):
-    """Allow HTTPS, or HTTP only for local development."""
-
-    parsed = urlparse(backend_url)
-
-    if parsed.scheme == "https":
-        return
-
-    local_hosts = {"localhost", "127.0.0.1", "::1"}
-
-    if parsed.scheme == "http" and parsed.hostname in local_hosts:
-        return
-
-    raise ValueError(
-        "Backend must use HTTPS. HTTP is allowed only for localhost testing."
-    )
+    return {
+        "metrics": [
+            {
+                "metric_name": METRIC_NAME_MAP[key],
+                "value": value,
+                "unit": METRIC_UNITS[key],
+                "recorded_at": timestamp,
+            }
+            for key, value in payload.items()
+        ]
+    }
 
 
 def send_telemetry(payload):
-    """
-    Send approved telemetry to the CICADA FastAPI backend.
-
-    Authentication:
-        X-Collector-Secret
-
-    Endpoint:
-        POST /api/v1/metrics
-    """
+    """Send approved metrics to the authenticated FastAPI backend."""
 
     backend_url = os.getenv("BACKEND_URL")
     collector_secret = os.getenv("COLLECTOR_SECRET")
 
-    if not backend_url:
-        raise ValueError("BACKEND_URL is not configured")
+    if not backend_url or not collector_secret:
+        raise ValueError(
+            "BACKEND_URL and COLLECTOR_SECRET must be configured"
+        )
 
-    if not collector_secret:
-        raise ValueError("COLLECTOR_SECRET is not configured")
+    parsed = urlparse(backend_url)
 
-    validate_backend_url(backend_url)
+    if parsed.scheme != "https" and not (
+        parsed.scheme == "http"
+        and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+    ):
+        raise ValueError("HTTPS required except for localhost development")
 
-    # Construct and validate the exact backend payload.
     backend_payload = build_backend_payload(payload)
 
     headers = {
@@ -160,7 +117,6 @@ def send_telemetry(payload):
 
     try:
         with httpx.Client(timeout=10.0, verify=True) as client:
-
             response = client.post(
                 backend_url,
                 json=backend_payload,
@@ -168,7 +124,6 @@ def send_telemetry(payload):
             )
 
             response.raise_for_status()
-
             result = response.json()
 
             return {
@@ -180,10 +135,7 @@ def send_telemetry(payload):
             }
 
     except httpx.TimeoutException:
-        return {
-            "success": False,
-            "error": "Request timed out",
-        }
+        return {"success": False, "error": "Request timed out"}
 
     except httpx.HTTPStatusError as error:
         return {
@@ -192,32 +144,4 @@ def send_telemetry(payload):
         }
 
     except httpx.RequestError:
-        return {
-            "success": False,
-            "error": "Network connection failed",
-        }
-
-
-if __name__ == "__main__":
-
-    print("CICADA Secure Collector Sender")
-    print("--------------------------------")
-
-    sample_metrics = {
-        "cpu_percent": 45.5,
-        "memory_percent": 70.2,
-        "disk_percent": 60.0,
-        "network_sent_bytes": 1024,
-        "network_received_bytes": 2048,
-    }
-
-    print("Testing telemetry validation...")
-    validate_outbound_payload(sample_metrics)
-
-    print("Testing backend payload conversion...")
-    print(build_backend_payload(sample_metrics))
-
-    print("--------------------------------")
-    print("Sender module loaded successfully.")
-
-
+        return {"success": False, "error": "Network connection failed"}
