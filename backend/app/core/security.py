@@ -45,3 +45,21 @@ def verify_collector_secret(
         calculated_hash.encode("ascii"),
         stored_hash.encode("utf-8")
     )
+
+def verify_admin_api_key(provided_key: str | None) -> bool:
+    """
+    Verify an administrator API key using constant-time comparison.
+    Fail closed if no administrator key is configured.
+    """
+    from app.core.config import settings
+
+    configured_key = settings.admin_api_key
+
+    if (
+        not isinstance(provided_key, str)
+        or not provided_key
+        or not configured_key
+    ):
+        return False
+
+    return hmac.compare_digest(provided_key, configured_key)
