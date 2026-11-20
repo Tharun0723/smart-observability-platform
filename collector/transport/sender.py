@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import httpx
+from dotenv import load_dotenv
 
+load_dotenv()
 
 METRIC_NAME_MAP = {
     "cpu_percent": "cpu_usage_percent",
@@ -21,20 +23,16 @@ METRIC_NAME_MAP = {
 ALLOWED_FIELDS = set(METRIC_NAME_MAP)
 
 PERCENTAGE_FIELDS = {
-    "cpu_percent",
-    "memory_percent",
-    "disk_percent",
-    "packet_loss_percent",
+    "cpu_percent", "memory_percent",
+    "disk_percent", "packet_loss_percent",
 }
 
 NON_NEGATIVE_FIELDS = {
-    "bandwidth_mbps",
-    "latency_ms",
-    "network_sent_bytes",
-    "network_received_bytes",
+    "bandwidth_mbps", "latency_ms",
+    "network_sent_bytes", "network_received_bytes",
 }
 
-METRIC_UNITS = {
+UNITS = {
     "cpu_percent": "%",
     "memory_percent": "%",
     "disk_percent": "%",
@@ -70,10 +68,9 @@ def validate_outbound_payload(payload):
 
 
 def build_backend_payload(payload):
-    """Convert local metrics into FastAPI MetricBatch format."""
+    """Convert collector metrics to the FastAPI MetricBatch schema."""
 
     validate_outbound_payload(payload)
-
     timestamp = datetime.now(timezone.utc).isoformat()
 
     return {
@@ -81,7 +78,7 @@ def build_backend_payload(payload):
             {
                 "metric_name": METRIC_NAME_MAP[key],
                 "value": value,
-                "unit": METRIC_UNITS[key],
+                "unit": UNITS[key],
                 "recorded_at": timestamp,
             }
             for key, value in payload.items()
@@ -90,15 +87,13 @@ def build_backend_payload(payload):
 
 
 def send_telemetry(payload):
-    """Send approved metrics to the authenticated FastAPI backend."""
+    """Send approved metadata to the FastAPI backend."""
 
     backend_url = os.getenv("BACKEND_URL")
     collector_secret = os.getenv("COLLECTOR_SECRET")
 
     if not backend_url or not collector_secret:
-        raise ValueError(
-            "BACKEND_URL and COLLECTOR_SECRET must be configured"
-        )
+        raise ValueError("BACKEND_URL and COLLECTOR_SECRET are required")
 
     parsed = urlparse(backend_url)
 
@@ -106,7 +101,7 @@ def send_telemetry(payload):
         parsed.scheme == "http"
         and parsed.hostname in {"localhost", "127.0.0.1", "::1"}
     ):
-        raise ValueError("HTTPS required except for localhost development")
+        raise ValueError("HTTPS is required except for localhost testing")
 
     backend_payload = build_backend_payload(payload)
 
@@ -122,7 +117,6 @@ def send_telemetry(payload):
                 json=backend_payload,
                 headers=headers,
             )
-
             response.raise_for_status()
             result = response.json()
 
