@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints.collectors import router as collectors_router
 from app.api.v1.endpoints.admin import router as admin_router
 from app.api.v1.endpoints.metrics import router as metrics_router
+from app.api.v1.endpoints.events import router as events_router
 
 
 # Main API router
@@ -31,4 +32,10 @@ api_router.include_router(
     metrics_router,
     prefix="/metrics",
     tags=["Telemetry"],
+)
+
+api_router.include_router(
+    events_router,
+    prefix="/events",
+    tags=["Events"],
 )

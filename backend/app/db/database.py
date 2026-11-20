@@ -1,28 +1,32 @@
+from pathlib import Path
 
 from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# SQLite database location
-DATABASE_URL = "sqlite:///./cicada.db"
 
-# Create database engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}
+# Always use the database inside the backend folder.
+DATABASE_PATH = Path(__file__).resolve().parents[2] / "cicada.db"
+
+DATABASE_URL = URL.create(
+    drivername="sqlite",
+    database=str(DATABASE_PATH),
 )
 
-# Create database sessions
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False},
+)
+
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
-    bind=engine
+    bind=engine,
 )
 
-# Base class for database models
 Base = declarative_base()
 
 
-# Database session dependency
 def get_db():
     db = SessionLocal()
     try:

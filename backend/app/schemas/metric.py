@@ -1,7 +1,13 @@
 import math
 
-from datetime import datetime
-from pydantic import BaseModel, Field, field_validator
+from datetime import datetime, timezone
+from pydantic import (
+    BaseModel,
+    Field,
+    ConfigDict,
+    field_validator,
+    field_serializer,
+)
 
 
 class MetricCreate(BaseModel):
@@ -55,3 +61,50 @@ class MetricIngestResponse(BaseModel):
     accepted: int
     collector_id: int
     tenant_id: int
+
+class MetricRead(BaseModel):
+    """One stored metric returned to the dashboard."""
+
+    id: int
+    tenant_id: int
+    collector_id: int
+    metric_name: str
+    value: float
+    unit: str | None
+    recorded_at: datetime
+    received_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("recorded_at", "received_at")
+    def serialize_as_utc(self, value: datetime):
+        # SQLite may return timezone-naive datetimes.
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+
+        return value.astimezone(timezone.utc)
+
+
+class MetricSummaryItem(BaseModel):
+    """Aggregated measurements for one metric type."""
+
+    metric_name: str
+    count: int
+    average: float
+    minimum: float
+    maximum: float
+    latest_recorded_at: datetime
+
+    @field_serializer("latest_recorded_at")
+    def serialize_latest_as_utc(self, value: datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+
+        return value.astimezone(timezone.utc)
+
+
+class MetricSummaryResponse(BaseModel):
+    """Summary of all available metrics for one tenant."""
+
+    tenant_id: int
+    metrics: list[MetricSummaryItem]    
