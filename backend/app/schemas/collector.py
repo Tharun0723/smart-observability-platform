@@ -25,3 +25,15 @@ class CollectorRead(BaseModel):
     last_seen_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class CollectorProvisioned(BaseModel):
+    """Collector details returned immediately after provisioning."""
+
+    id: int
+    tenant_id: int
+    name: str
+    is_active: bool
+    created_at: datetime
+
+    # Returned once during provisioning; never stored in the database.
+    collector_secret: str    

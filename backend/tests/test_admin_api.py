@@ -71,3 +71,68 @@ def test_list_tenants_without_admin_key(admin_client):
     response = admin_client.get("/api/v1/admin/tenants")
 
     assert response.status_code == 401
+
+def test_provision_collector_with_valid_admin_key(admin_client, db_session):
+    from app.models import Collector
+    from app.services.collector_auth import authenticate_collector
+
+    tenant = Tenant(name="Collector Provisioning Company")
+    db_session.add(tenant)
+    db_session.commit()
+    db_session.refresh(tenant)
+
+    response = admin_client.post(
+        "/api/v1/admin/collectors",
+        headers={"X-Admin-API-Key": "test-admin-key"},
+        json={
+            "tenant_id": tenant.id,
+            "name": "Production Server Collector",
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+    assert data["tenant_id"] == tenant.id
+    assert data["name"] == "Production Server Collector"
+    assert data["collector_secret"]
+    assert "secret_hash" not in data
+
+    # Verify that only the hash was stored, and the returned secret works.
+    collector = db_session.query(Collector).filter(
+        Collector.id == data["id"]
+    ).first()
+
+    assert collector.secret_hash != data["collector_secret"]
+
+    authenticated = authenticate_collector(
+        db_session,
+        data["collector_secret"],
+    )
+    assert authenticated is not None
+    assert authenticated.id == collector.id
+
+
+def test_provision_collector_rejects_unknown_tenant(admin_client):
+    response = admin_client.post(
+        "/api/v1/admin/collectors",
+        headers={"X-Admin-API-Key": "test-admin-key"},
+        json={
+            "tenant_id": 9999,
+            "name": "Unknown Tenant Collector",
+        },
+    )
+
+    assert response.status_code == 404
+
+
+def test_provision_collector_requires_admin_key(admin_client):
+    response = admin_client.post(
+        "/api/v1/admin/collectors",
+        json={
+            "tenant_id": 1,
+            "name": "Unauthorized Collector",
+        },
+    )
+
+    assert response.status_code == 401    
