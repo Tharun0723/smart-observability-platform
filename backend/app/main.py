@@ -1,7 +1,8 @@
-
 from fastapi import FastAPI
 
-# Create the main FastAPI application
+from app.api.v1.router import api_router
+
+
 app = FastAPI(
     title="CICADA Smart Observability Platform",
     description="Secure AIOps observability backend",
@@ -9,7 +10,7 @@ app = FastAPI(
 )
 
 
-# Root endpoint
+# Existing root endpoint
 @app.get("/")
 def home():
     return {
@@ -18,10 +19,14 @@ def home():
     }
 
 
-# Health-check endpoint
+# Existing health-check endpoint
 @app.get("/health")
 def health_check():
     return {
         "status": "healthy",
         "service": "CICADA Backend"
     }
+
+
+# Version 1 API routes
+app.include_router(api_router, prefix="/api/v1")

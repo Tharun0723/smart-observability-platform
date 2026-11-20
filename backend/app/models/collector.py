@@ -1,4 +1,3 @@
-
 from sqlalchemy import (
     Column,
     Integer,
@@ -27,6 +26,15 @@ class Collector(Base):
     )
 
     name = Column(String(150), nullable=False)
+
+    # Store the hash, never the original collector secret.
+    # Nullable allows existing collectors to remain in the database.
+    secret_hash = Column(
+        String(64),
+        nullable=True,
+        unique=True,
+        index=True
+    )
 
     is_active = Column(Boolean, default=True, nullable=False)
 
