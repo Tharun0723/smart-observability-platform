@@ -221,3 +221,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local database files (never commit)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
