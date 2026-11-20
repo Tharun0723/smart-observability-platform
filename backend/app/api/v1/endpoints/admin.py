@@ -8,7 +8,12 @@ from app.core.dependencies import require_admin
 from app.db.database import get_db
 from app.models import Tenant
 from app.schemas import TenantCreate, TenantRead
-from app.services.collector_auth import provision_collector
+from app.services.collector_auth import (
+    provision_collector,
+    revoke_collector,
+    activate_collector,
+    rotate_collector_secret,
+)
 from app.schemas import CollectorProvision, CollectorProvisioned
 from datetime import datetime, timezone
 from app.models import Metric, Event
@@ -41,6 +46,20 @@ from app.schemas import (
 )
 
 from app.services.incident_queries import get_tenant_incidents
+from app.services.incident_correlation import get_related_incidents
+from app.schemas import (
+    IncidentRead,
+    IncidentRecommendationUpdate,
+    IncidentAnalyticsResponse,
+)
+
+from app.services.incident_analytics import (
+    get_tenant_incident_analytics,
+)
+from app.schemas import (
+    CollectorStatusRead,
+    CollectorSecretRotationResponse,
+)
 
 def validate_time_range(
     start_time: datetime | None,
@@ -472,3 +491,169 @@ def update_incident_status(
         raise
 
     return incident
+@router.get(
+    "/tenants/{tenant_id}/incidents/{incident_id}/related",
+    response_model=list[IncidentRead],
+)
+def read_related_incidents(
+    tenant_id: int,
+    incident_id: int,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    """Find related incidents belonging to the same tenant."""
+
+    if limit < 1 or limit > 100:
+        raise HTTPException(
+            status_code=422,
+            detail="limit must be between 1 and 100",
+        )
+
+    related = get_related_incidents(
+        db=db,
+        tenant_id=tenant_id,
+        incident_id=incident_id,
+        limit=limit,
+    )
+
+    if related is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found for this tenant",
+        )
+
+    return related
+@router.patch(
+    "/tenants/{tenant_id}/incidents/{incident_id}/recommendation",
+    response_model=IncidentRead,
+)
+def update_incident_recommendation(
+    tenant_id: int,
+    incident_id: int,
+    payload: IncidentRecommendationUpdate,
+    db: Session = Depends(get_db),
+):
+    """Update or clear an incident's AI recommendation."""
+
+    incident = (
+        db.query(Incident)
+        .filter(
+            Incident.id == incident_id,
+            Incident.tenant_id == tenant_id,
+        )
+        .first()
+    )
+
+    if incident is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found for this tenant",
+        )
+
+    incident.recommendation = payload.recommendation
+
+    try:
+        db.commit()
+        db.refresh(incident)
+    except Exception:
+        db.rollback()
+        raise
+
+    return incident
+@router.get(
+    "/tenants/{tenant_id}/incidents/summary",
+    response_model=IncidentAnalyticsResponse,
+)
+def read_tenant_incident_analytics(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return incident statistics for the tenant dashboard."""
+
+    tenant = db.query(Tenant).filter(
+        Tenant.id == tenant_id
+    ).first()
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tenant not found",
+        )
+
+    summary = get_tenant_incident_analytics(
+        db=db,
+        tenant_id=tenant_id,
+    )
+
+    return {
+        "tenant_id": tenant_id,
+        **summary,
+    }
+@router.delete(
+    "/tenants/{tenant_id}/collectors/{collector_id}",
+    response_model=CollectorStatusRead,
+)
+def delete_tenant_collector(
+    tenant_id: int,
+    collector_id: int,
+    db: Session = Depends(get_db),
+):
+    """Revoke collector authentication."""
+
+    try:
+        return revoke_collector(
+            db, tenant_id, collector_id
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        )
+
+@router.post(
+    "/tenants/{tenant_id}/collectors/{collector_id}/activate",
+    response_model=CollectorStatusRead,
+)
+def activate_tenant_collector(
+    tenant_id: int,
+    collector_id: int,
+    db: Session = Depends(get_db),
+):
+    """Reactivate a collector."""
+
+    try:
+        return activate_collector(
+            db, tenant_id, collector_id
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        )
+@router.post(
+    "/tenants/{tenant_id}/collectors/{collector_id}/rotate-secret",
+    response_model=CollectorSecretRotationResponse,
+)
+def rotate_tenant_collector_secret(
+    tenant_id: int,
+    collector_id: int,
+    db: Session = Depends(get_db),
+):
+    """Generate a new one-time collector secret."""
+
+    try:
+        collector, new_secret = rotate_collector_secret(
+            db, tenant_id, collector_id
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        )
+
+    return {
+        "id": collector.id,
+        "tenant_id": collector.tenant_id,
+        "name": collector.name,
+        "collector_secret": new_secret,
+    }    

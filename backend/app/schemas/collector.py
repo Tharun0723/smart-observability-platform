@@ -37,3 +37,22 @@ class CollectorProvisioned(BaseModel):
 
     # Returned once during provisioning; never stored in the database.
     collector_secret: str    
+
+class CollectorStatusRead(BaseModel):
+    """Collector status after activation or revocation."""
+
+    id: int
+    tenant_id: int
+    name: str
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CollectorSecretRotationResponse(BaseModel):
+    """New collector secret, returned only during rotation."""
+
+    id: int
+    tenant_id: int
+    name: str
+    collector_secret: str

@@ -127,3 +127,47 @@ class IncidentStatusUpdate(BaseModel):
         "resolved",
         "closed",
     ]
+class IncidentRecommendationUpdate(BaseModel):
+    """Update or clear an incident recommendation."""
+
+    recommendation: str | None = Field(max_length=5000)
+
+    @field_validator("recommendation")
+    @classmethod
+    def clean_recommendation(cls, value):
+        if value is None:
+            return None
+
+        value = value.strip()
+
+        if not value:
+            raise ValueError("Recommendation cannot be empty")
+
+        return value
+
+
+class IncidentSeverityCount(BaseModel):
+    severity: str
+    count: int
+
+
+class IncidentPriorityCount(BaseModel):
+    priority: str
+    count: int
+
+
+class IncidentStatusCount(BaseModel):
+    status: str
+    count: int
+
+
+class IncidentAnalyticsResponse(BaseModel):
+    """Aggregated incident statistics for a tenant."""
+
+    tenant_id: int
+    total_incidents: int
+    repeated_incidents: int
+    correlated_incidents: int
+    by_severity: list[IncidentSeverityCount]
+    by_priority: list[IncidentPriorityCount]
+    by_status: list[IncidentStatusCount]    
