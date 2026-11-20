@@ -30,6 +30,17 @@ from app.services.event_queries import (
     get_tenant_events,
     get_tenant_event_summary,
 )
+from fastapi import Query
+from typing import Literal
+
+from app.models import Incident
+
+from app.schemas import (
+    IncidentRead,
+    IncidentStatusUpdate,
+)
+
+from app.services.incident_queries import get_tenant_incidents
 
 def validate_time_range(
     start_time: datetime | None,
@@ -352,3 +363,112 @@ def read_tenant_dashboard(
         db=db,
         tenant_id=tenant_id,
     )
+@router.get(
+    "/tenants/{tenant_id}/incidents",
+    response_model=list[IncidentRead],
+)
+def read_tenant_incidents(
+    tenant_id: int,
+    severity: Literal[
+        "info", "low", "medium", "high", "critical"
+    ] | None = None,
+    priority: Literal[
+        "low", "medium", "high", "critical"
+    ] | None = None,
+    incident_status: Literal[
+        "open",
+        "acknowledged",
+        "investigating",
+        "resolved",
+        "closed",
+    ] | None = Query(default=None, alias="status"),
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    db: Session = Depends(get_db),
+):
+    """List and filter incidents belonging to one tenant."""
+
+    if limit < 1 or limit > 500:
+        raise HTTPException(
+            status_code=422,
+            detail="limit must be between 1 and 500",
+        )
+
+    if offset < 0:
+        raise HTTPException(
+            status_code=422,
+            detail="offset cannot be negative",
+        )
+
+    validate_time_range(start_time, end_time)
+
+    tenant = db.query(Tenant).filter(
+        Tenant.id == tenant_id
+    ).first()
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tenant not found",
+        )
+
+    return get_tenant_incidents(
+        db=db,
+        tenant_id=tenant_id,
+        severity=severity,
+        priority=priority,
+        incident_status=incident_status,
+        start_time=start_time,
+        end_time=end_time,
+        limit=limit,
+        offset=offset,
+    )
+@router.patch(
+    "/tenants/{tenant_id}/incidents/{incident_id}/status",
+    response_model=IncidentRead,
+)
+def update_incident_status(
+    tenant_id: int,
+    incident_id: int,
+    payload: IncidentStatusUpdate,
+    db: Session = Depends(get_db),
+):
+    """Update the status of an incident belonging to a tenant."""
+
+    tenant = db.query(Tenant).filter(
+        Tenant.id == tenant_id
+    ).first()
+
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Tenant not found",
+        )
+
+    incident = (
+        db.query(Incident)
+        .filter(
+            Incident.id == incident_id,
+            Incident.tenant_id == tenant_id,
+        )
+        .first()
+    )
+
+    if incident is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Incident not found for this tenant",
+        )
+
+    incident.status = payload.status
+
+    try:
+        db.commit()
+        db.refresh(incident)
+    except Exception:
+        db.rollback()
+        raise
+
+    return incident

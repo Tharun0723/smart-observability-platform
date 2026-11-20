@@ -9,6 +9,7 @@ ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class Settings(BaseSettings):
     admin_api_key: str = ""
+    aiops_api_key: str = ""
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
