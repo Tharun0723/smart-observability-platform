@@ -224,3 +224,13 @@ __marimo__/
 __pycache__/
 *.py[cod]
 .env
+
+# Local databases and runtime data
+*.db
+*.sqlite
+*.sqlite3
+/data/
+
+# Frontend dependencies and build output
+**/node_modules/
+frontend/dist/
