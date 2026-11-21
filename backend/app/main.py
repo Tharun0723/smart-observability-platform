@@ -1,32 +1,41 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api.v1.router import api_router
+from app.db.database import Base, engine
+from app import models as _models
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create missing tables on startup.
+    Base.metadata.create_all(bind=engine)
+    yield
 
 
 app = FastAPI(
-    title="CICADA Smart Observability Platform",
+    title="NEXORA Smart Observability Platform",
     description="Secure AIOps observability backend",
-    version="0.1.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 
-# Existing root endpoint
 @app.get("/")
 def home():
     return {
-        "message": "Welcome to CICADA Smart Observability Platform",
-        "status": "running"
+        "message": "Welcome to NEXORA Smart Observability Platform",
+        "status": "running",
     }
 
 
-# Existing health-check endpoint
 @app.get("/health")
 def health_check():
     return {
         "status": "healthy",
-        "service": "CICADA Backend"
+        "service": "NEXORA Backend",
     }
 
 
-# Version 1 API routes
 app.include_router(api_router, prefix="/api/v1")
