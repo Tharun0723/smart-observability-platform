@@ -1,22 +1,34 @@
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
-# Always use the database inside the backend folder.
-DATABASE_PATH = Path(__file__).resolve().parents[2] / "cicada.db"
+if DATABASE_URL:
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace(
+            "postgres://", "postgresql://", 1
+        )
 
-DATABASE_URL = URL.create(
-    drivername="sqlite",
-    database=str(DATABASE_PATH),
-)
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+    )
+else:
+    database_path = Path(__file__).resolve().parents[2] / "cicada.db"
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
-)
+    sqlite_url = URL.create(
+        drivername="sqlite",
+        database=str(database_path),
+    )
+
+    engine = create_engine(
+        sqlite_url,
+        connect_args={"check_same_thread": False},
+    )
 
 SessionLocal = sessionmaker(
     autocommit=False,
