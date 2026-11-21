@@ -1,0 +1,201 @@
+
+.incidents-page {
+  padding: 30px;
+  min-height: 100vh;
+  color: #1e293b;
+}
+
+.incidents-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 35px;
+}
+
+.incidents-header h1 {
+  font-size: 30px;
+  margin: 0 0 8px;
+}
+
+.incidents-header p {
+  color: #64748b;
+  margin: 0;
+}
+
+.incidents-demo {
+  background: #dbeafe;
+  color: #2563eb;
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+.incident-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.incident-card {
+  background: white;
+  padding: 25px;
+  border-radius: 14px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease;
+}
+
+.incident-card:hover {
+  transform: translateY(-5px);
+}
+
+.incident-card p {
+  color: #64748b;
+  margin-top: 0;
+}
+
+.incident-card h2 {
+  font-size: 30px;
+  margin-bottom: 0;
+}
+
+.open-color {
+  color: #dc2626;
+}
+
+.investigating-color {
+  color: #d97706;
+}
+
+.resolved-color {
+  color: #16a34a;
+}
+
+.incidents-table-panel {
+  background: white;
+  padding: 28px;
+  border-radius: 14px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.incidents-table-panel h2 {
+  margin-top: 0;
+}
+
+.incidents-subtitle {
+  color: #64748b;
+  font-size: 14px;
+  margin-bottom: 25px;
+}
+
+.incident-table-wrapper {
+  overflow-x: auto;
+}
+
+.incident-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
+
+.incident-table th {
+  text-align: left;
+  padding: 15px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.incident-table td {
+  padding: 18px 15px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 14px;
+}
+
+.incident-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.incident-table td p {
+  color: #64748b;
+  font-size: 12px;
+  margin: 7px 0 0;
+}
+
+.incident-severity,
+.incident-status {
+  display: inline-block;
+  padding: 7px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.incident-severity.high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.incident-severity.medium {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.incident-severity.low {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.incident-status.open {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.incident-status.investigating {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.incident-status.resolved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.incidents-note {
+  margin-top: 25px;
+  padding: 18px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .incident-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .incidents-page {
+    padding: 20px;
+  }
+
+  .incidents-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .incident-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .incident-card {
+    animation: none;
+    transition: none;
+  }
+}
